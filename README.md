@@ -1,7 +1,3 @@
-Based on your request, here is the content formatted for a **GitHub `README.md` file**, adhering to standard Markdown practices and the structure you provided, and applying the KBS format rule for any LaTeX.
-
------
-
 # ✨ Father-Inspired Metaheuristic (FIM)
 
 This repository contains the **MATLAB implementation** of the **Father-Inspired Metaheuristic (FIM)**, all competitor algorithms, and the complete set of results used in the associated research paper.
