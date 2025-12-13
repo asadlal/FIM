@@ -1,9 +1,7 @@
 %==========================================================================
 %  Multi-Benchmark Runner + Automated Parallel Cluster Setup
 %  MATLAB R2024a
-%  Update: Integrates logic to automatically increase the local cluster's
-%  NumWorkers limit if it is currently set too low (e.g., below 12).
-%  This fixes the "Too many workers requested" warning directly in code.    
+%  Muhammad Asad Lal    
 %==========================================================================
 clc;
 clear;
