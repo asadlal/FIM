@@ -75,7 +75,7 @@ Options are: `'fun_info'`, `'CEC2017'`, `'Func_eng'`.
 
 | Benchmark | Variable | Example |
 | :--- | :--- | :--- |
-| **CEC2017** ($\text{F}_2$ skipped) | `Fun_ids` and `Fun_list` | `Fun_ids = [1, 3:30]` <br> `Fun_list = arrayfun(@(k) sprintf('F%d',k), Fun_ids, false)` |
+| **CEC2017** | `Fun_ids` and `Fun_list` | `Fun_ids = [1, 3:30]` <br> `Fun_list = arrayfun(@(k) sprintf('F%d',k), Fun_ids, false)` |
 | **Classical functions** | `Fun_ids` and `Fun_list` | `Fun_ids = 1:23` <br> `Fun_list = arrayfun(@(k) sprintf('F%d',k), Fun_ids, false)` |
 | **Engineering problems** | `Fun_list` | `Fun_list = {'PressureVesselDesign', 'SpringDesign', 'ThreeBarTruss', 'GearTrainDesign', 'CantileverBeam'}` |
 
