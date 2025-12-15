@@ -1,7 +1,7 @@
 %==========================================================================
 %  Multi-Benchmark Runner + Automated Parallel Cluster Setup
 %  MATLAB R2024a
-%  Muhammad Asad Lal    
+%  Muhammad Asad Lal  
 %==========================================================================
 clc;
 clear;
@@ -9,16 +9,16 @@ close all;
 addpath(genpath(fullfile(pwd, 'Algorithms')));
 %% ---------------- User settings ----------------
 % Parallel computing settings
-parallel_on = false;  % Set to true to enable parallel processing (ON/OFF switch)
-num_workers = 10;    % Set the desired number of workers for THIS RUN
+parallel_on = true;  % Set to true to enable parallel processing (ON/OFF switch)
+num_workers = 8;    % Set the desired number of workers for THIS RUN
 max_cluster_limit = num_workers; % Set the maximum worker limit to save to the cluster profile. 
                         % This must be >= num_workers.
 
 % Benchmarks available: 'fun_info', 'CEC2017', 'Func_eng'
-benchName        = 'fun_info';            % choose benchmark
+benchName        = 'CEC2017';            % choose benchmark
 % Select functions once using numeric ids (mix singles + ranges)
-Fun_ids          = 1:23;
-%Fun_ids         = [1, 3:30];
+%Fun_ids          = 1:23;
+Fun_ids          = [1, 3:30];
 Fun_list         = arrayfun(@(k) sprintf('F%d',k), Fun_ids, 'UniformOutput', false);
 %Fun_list        = {'PressureVesselDesign','SpringDesign','ThreeBarTruss','GearTrainDesign','CantileverBeam'};
 Search           = 50;
@@ -87,6 +87,7 @@ end
 resultsRoot   = fullfile(pwd, 'Results and Graphs');
 benchRoot     = fullfile(resultsRoot, benchName);
 excelFilePath = fullfile(benchRoot, [benchName '.xlsx']);
+% REMOVED: Separate decision variables file - now stored in main file
 graphsRoot    = fullfile(benchRoot, 'Graphs');
 if ~exist(resultsRoot, 'dir'), mkdir(resultsRoot); end
 if ~exist(benchRoot  , 'dir'), mkdir(benchRoot);   end
@@ -98,6 +99,9 @@ ensureExcelClosedAndUnlocked(excelFilePath);
 fprintf('Starting benchmark: %s\n', benchName);
 fprintf('Functions: %s\n', strjoin(Fun_list, ', '));
 fprintf('Target runs per function: %d\n', num_runs);
+if strcmp(benchName, 'Func_eng')
+    fprintf('NOTE: Storing decision variables in main Excel file after Rank column.\n');
+end
 fprintf('%s\n\n', repmat('-',1,71));
 %% ========================== Iterate functions ============================
 for f = 1:numel(Fun_list)
@@ -116,6 +120,12 @@ for f = 1:numel(Fun_list)
                             'tailMean', 0, 'firstBestIter', 0, 'gapFinal', 0, 'tailGap', 0, ...
                             'png', '', 'eps', '', 'pdf', '', 'isWin', false), 1, max_repData_size);
     repData_count = 0; % Counter for actual executed runs
+
+    % NEW: Store FIM positions for all runs to find best run later (only for Func_eng)
+    if strcmp(benchName, 'Func_eng')
+        FIM_positions = cell(num_runs, 2); % Column 1: run number, Column 2: FIM position
+        FIM_best_scores = nan(num_runs, 1); % Store FIM best scores to find optimal run
+    end
 
     % problem info for this function (must be defined OUTSIDE loop)
     [lowerbound, upperbound, dimension, fitness] = info_handle(Fun_name);
@@ -143,133 +153,195 @@ for f = 1:numel(Fun_list)
         Fun_name, startRunIdx, num_runs, runsToDo);
     
     % Pre-allocate cell arrays to collect results from all algorithms
-    resultsCell = cell(runsToDo, 14); % Store run index + 13 algorithm results
+    % For Func_eng: store FIM position for decision variables, for others: only best scores
+    if strcmp(benchName, 'Func_eng')
+        resultsCell = cell(runsToDo, 15); % Extra column for FIM position
+    else
+        resultsCell = cell(runsToDo, 14); % Original: run index + 13 algorithm results
+    end
     
-    % ====================== run remaining times for this function =========
+    % Pre-allocate FIM_pos before the parfor loop
+FIM_pos = cell(runsToDo, 1);  % A cell array to store decision variables for each run
+
+% ====================== run remaining times for this function =========
+% Select loop type based on user setting
+if use_parallel
+    parfor k = 1:runsToDo
+        r = runIndices(k);  % Get the actual run index
+        
+        % Store results for this run
+        if strcmp(benchName, 'Func_eng')
+            run_r_results = cell(1, 15); % Extra space for FIM position
+        else
+            run_r_results = cell(1, 14); % Original
+        end
+
+        fprintf('→ [%s] Run %d/%d ... running\n', Fun_name, r, num_runs);
+
+        % ---------- Run all algorithms ----------
+        if strcmp(benchName, 'Func_eng')
+            % Capture FIM position for decision variables
+            [FIM_best, FIM_pos{k}, FIM_curve] = FIM(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        else
+            [FIM_best, ~, FIM_curve] = FIM(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        end
+
+        % Run other algorithms and store results
+        [GA_best, ~, GA_curve] = GA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [TBLO_best, ~, TBLO_curve] = TBLO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [WSO_best, ~, WSO_curve] = WSO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [WO_best, ~, WO_curve] = WO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [GSA_best, ~, GSA_curve] = GSA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [WOA_best, ~, WOA_curve] = WOA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [GWO_best, ~, GWO_curve] = GWO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [AVOA_best, ~, AVOA_curve] = AVOA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [RSA_best, ~, RSA_curve] = RSA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [MPA_best, ~, MPA_curve] = MPA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [TSA_best, ~, TSA_curve] = TSA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [MVO_best, ~, MVO_curve] = MVO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+
+        % ---------- ENSURE CURVES ARE CONSISTENT WITH BEST SCORES ----------
+        FIM_curve = standardizeCurve(FIM_curve, FIM_best, Max_iterations);
+        GA_curve = standardizeCurve(GA_curve, GA_best, Max_iterations);
+        TBLO_curve = standardizeCurve(TBLO_curve, TBLO_best, Max_iterations);
+        WSO_curve = standardizeCurve(WSO_curve, WSO_best, Max_iterations);
+        WO_curve = standardizeCurve(WO_curve, WO_best, Max_iterations);
+        GSA_curve = standardizeCurve(GSA_curve, GSA_best, Max_iterations);
+        WOA_curve = standardizeCurve(WOA_curve, WOA_best, Max_iterations);
+        GWO_curve = standardizeCurve(GWO_curve, GWO_best, Max_iterations);
+        AVOA_curve = standardizeCurve(AVOA_curve, AVOA_best, Max_iterations);
+        RSA_curve = standardizeCurve(RSA_curve, RSA_best, Max_iterations);
+        MPA_curve = standardizeCurve(MPA_curve, MPA_best, Max_iterations);
+        TSA_curve = standardizeCurve(TSA_curve, TSA_best, Max_iterations);
+        MVO_curve = standardizeCurve(MVO_curve, MVO_best, Max_iterations);
+
+        % Store all data in the temporary cell array
+        run_r_results{1} = r;
+        run_r_results{2} = struct('best', FIM_best, 'curve', FIM_curve);
+        run_r_results{3} = struct('best', GA_best, 'curve', GA_curve);
+        run_r_results{4} = struct('best', TBLO_best, 'curve', TBLO_curve);
+        run_r_results{5} = struct('best', WSO_best, 'curve', WSO_curve);
+        run_r_results{6} = struct('best', WO_best, 'curve', WO_curve);
+        run_r_results{7} = struct('best', GSA_best, 'curve', GSA_curve);
+        run_r_results{8} = struct('best', WOA_best, 'curve', WOA_curve);
+        run_r_results{9} = struct('best', GWO_best, 'curve', GWO_curve);
+        run_r_results{10} = struct('best', AVOA_best, 'curve', AVOA_curve);
+        run_r_results{11} = struct('best', RSA_best, 'curve', RSA_curve);
+        run_r_results{12} = struct('best', MPA_best, 'curve', MPA_curve);
+        run_r_results{13} = struct('best', TSA_best, 'curve', TSA_curve);
+        run_r_results{14} = struct('best', MVO_best, 'curve', MVO_curve);
+
+        % For Func_eng: Store FIM position for decision variables
+        if strcmp(benchName, 'Func_eng')
+            run_r_results{15} = FIM_pos{k};  % Store the decision variables for each run
+        end
+
+        resultsCell(k, :) = run_r_results;  % Store the results for this run
+    end % parfor
+
+else % Sequential execution using standard for loop
+    for k = 1:runsToDo
+        r = runIndices(k); 
+        %rng('shuffle');
+        
+        fprintf('→ [%s] Run %d/%d ... running\n', Fun_name, r, num_runs);
+        
+        % Store results for this run
+        if strcmp(benchName, 'Func_eng')
+            run_r_results = cell(1, 15); % Extra space for FIM position
+        else
+            run_r_results = cell(1, 14); % Original
+        end
+
+        % ---------- Run all algorithms ----------
+        if strcmp(benchName, 'Func_eng')
+            % Capture FIM position for decision variables
+            [FIM_best, FIM_pos, FIM_curve] = FIM(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        else
+            [FIM_best, ~, FIM_curve] = FIM(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        end
+
+        % Run other algorithms and store results
+        [GA_best, ~, GA_curve] = GA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [TBLO_best, ~, TBLO_curve] = TBLO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [WSO_best, ~, WSO_curve] = WSO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [WO_best, ~, WO_curve] = WO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [GSA_best, ~, GSA_curve] = GSA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [WOA_best, ~, WOA_curve] = WOA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [GWO_best, ~, GWO_curve] = GWO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [AVOA_best, ~, AVOA_curve] = AVOA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [RSA_best, ~, RSA_curve] = RSA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [MPA_best, ~, MPA_curve] = MPA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [TSA_best, ~, TSA_curve] = TSA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+        [MVO_best, ~, MVO_curve] = MVO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
+
+        % ---------- ENSURE CURVES ARE CONSISTENT WITH BEST SCORES ----------
+        FIM_curve = standardizeCurve(FIM_curve, FIM_best, Max_iterations);
+        GA_curve = standardizeCurve(GA_curve, GA_best, Max_iterations);
+        TBLO_curve = standardizeCurve(TBLO_curve, TBLO_best, Max_iterations);
+        WSO_curve = standardizeCurve(WSO_curve, WSO_best, Max_iterations);
+        WO_curve = standardizeCurve(WO_curve, WO_best, Max_iterations);
+        GSA_curve = standardizeCurve(GSA_curve, GSA_best, Max_iterations);
+        WOA_curve = standardizeCurve(WOA_curve, WOA_best, Max_iterations);
+        GWO_curve = standardizeCurve(GWO_curve, GWO_best, Max_iterations);
+        AVOA_curve = standardizeCurve(AVOA_curve, AVOA_best, Max_iterations);
+        RSA_curve = standardizeCurve(RSA_curve, RSA_best, Max_iterations);
+        MPA_curve = standardizeCurve(MPA_curve, MPA_best, Max_iterations);
+        TSA_curve = standardizeCurve(TSA_curve, TSA_best, Max_iterations);
+        MVO_curve = standardizeCurve(MVO_curve, MVO_best, Max_iterations);
+
+        % Store results
+        run_r_results{1} = r;
+        run_r_results{2} = struct('best', FIM_best, 'curve', FIM_curve);
+        run_r_results{3} = struct('best', GA_best, 'curve', GA_curve);
+        run_r_results{4} = struct('best', TBLO_best, 'curve', TBLO_curve);
+        run_r_results{5} = struct('best', WSO_best, 'curve', WSO_curve);
+        run_r_results{6} = struct('best', WO_best, 'curve', WO_curve);
+        run_r_results{7} = struct('best', GSA_best, 'curve', GSA_curve);
+        run_r_results{8} = struct('best', WOA_best, 'curve', WOA_curve);
+        run_r_results{9} = struct('best', GWO_best, 'curve', GWO_curve);
+        run_r_results{10} = struct('best', AVOA_best, 'curve', AVOA_curve);
+        run_r_results{11} = struct('best', RSA_best, 'curve', RSA_curve);
+        run_r_results{12} = struct('best', MPA_best, 'curve', MPA_curve);
+        run_r_results{13} = struct('best', TSA_best, 'curve', TSA_curve);
+        run_r_results{14} = struct('best', MVO_best, 'curve', MVO_curve);
+
+        % For Func_eng: Store FIM position for decision variables
+        if strcmp(benchName, 'Func_eng')
+            run_r_results{15} = FIM_pos;  % Store the decision variables for the run
+        end
+
+        resultsCell(k, :) = run_r_results;  % Store the results for this run
+    end % for loop ends
+end % if-else ends
+
     
-    % Select loop type based on user setting
-    if use_parallel
+    % NEW: Find the best run for decision variables storage (only for Func_eng)
+    if strcmp(benchName, 'Func_eng')
+        bestRun = NaN;
+        bestFIMScore = Inf;
+        bestFIMPosition = [];
         
-        parfor k = 1:runsToDo
-            % r is the actual run number (e.g., 1 to 30)
-            r = runIndices(k); 
-            
-            % Ensure unique RNG state for each parallel run
-            rng(r, 'twister'); 
-            
-            % Store results for this run
-            run_r_results = cell(1, 14);
-            
-            fprintf('→ [%s] Run %d/%d ... running\n', Fun_name, r, num_runs);
-            
-            % ---------- run all algorithms ----------
-            [FIM_best, ~, FIM_curve]   = FIM(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [GA_best,  ~, GA_curve ]   = GA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [TBLO_best,~, TBLO_curve]  = TBLO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [WSO_best,~, WSO_curve]  = WSO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [WO_best,  ~, WO_curve ]   = WO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [GSA_best, ~, GSA_curve]   = GSA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [WOA_best, ~, WOA_curve]   = WOA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [GWO_best, ~, GWO_curve]   = GWO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [AVOA_best,~, AVOA_curve]  = AVOA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [RSA_best, ~, RSA_curve]   = RSA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [MPA_best, ~, MPA_curve]   = MPA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [TSA_best, ~, TSA_curve]   = TSA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [MVO_best, ~, MVO_curve]   = MVO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            
-            % ---------- ENSURE CURVES ARE CONSISTENT WITH BEST SCORES ----------
-            FIM_curve = standardizeCurve(FIM_curve, FIM_best, Max_iterations);
-            GA_curve  = standardizeCurve(GA_curve , GA_best , Max_iterations);
-            TBLO_curve= standardizeCurve(TBLO_curve,TBLO_best,Max_iterations);
-            WSO_curve = standardizeCurve(WSO_curve,WSO_best,Max_iterations);
-            WO_curve  = standardizeCurve(WO_curve , WO_best , Max_iterations);
-            GSA_curve = standardizeCurve(GSA_curve,GSA_best, Max_iterations);
-            WOA_curve = standardizeCurve(WOA_curve,WOA_best, Max_iterations);
-            GWO_curve = standardizeCurve(GWO_curve,GWO_best, Max_iterations);
-            AVOA_curve= standardizeCurve(AVOA_curve,AVOA_best,Max_iterations);
-            RSA_curve = standardizeCurve(RSA_curve, RSA_best,Max_iterations);
-            MPA_curve = standardizeCurve(MPA_curve, MPA_best,Max_iterations);
-            TSA_curve = standardizeCurve(TSA_curve, TSA_best,Max_iterations);
-            MVO_curve = standardizeCurve(MVO_curve, MVO_best,Max_iterations);
-            
-            % Store all data in the temporary cell array (resultsCell is sliced)
-            run_r_results{1}  = r;
-            run_r_results{2}  = struct('best', FIM_best, 'curve', FIM_curve);
-            run_r_results{3}  = struct('best', GA_best,  'curve', GA_curve);
-            run_r_results{4}  = struct('best', TBLO_best,'curve', TBLO_curve);
-            run_r_results{5}  = struct('best', WSO_best, 'curve', WSO_curve);
-            run_r_results{6}  = struct('best', WO_best,  'curve', WO_curve);
-            run_r_results{7}  = struct('best', GSA_best, 'curve', GSA_curve);
-            run_r_results{8}  = struct('best', WOA_best, 'curve', WOA_curve);
-            run_r_results{9}  = struct('best', GWO_best, 'curve', GWO_curve);
-            run_r_results{10} = struct('best', AVOA_best,'curve', AVOA_curve);
-            run_r_results{11} = struct('best', RSA_best, 'curve', RSA_curve);
-            run_r_results{12} = struct('best', MPA_best, 'curve', MPA_curve);
-            run_r_results{13} = struct('best', TSA_best, 'curve', TSA_curve);
-            run_r_results{14} = struct('best', MVO_best, 'curve', MVO_curve);
-            
-            resultsCell(k, :) = run_r_results;
-        end % parfor
-        
-    else % Sequential execution using standard for loop
-        
+        % Collect FIM scores and positions from all runs to find the best one
         for k = 1:runsToDo
-            r = runIndices(k); 
-            rng('shuffle');
+            r = resultsCell{k, 1};
+            FIM_best = resultsCell{k, 2}.best;
+            FIM_pos = resultsCell{k, 15};
             
-            fprintf('→ [%s] Run %d/%d ... running\n', Fun_name, r, num_runs);
+            % Store for tracking
+            FIM_best_scores(r) = FIM_best;
+            FIM_positions{r, 1} = r;
+            FIM_positions{r, 2} = FIM_pos;
             
-            % Store results for this run
-            run_r_results = cell(1, 14);
-
-            % ---------- run all algorithms ----------
-            [FIM_best, ~, FIM_curve]   = FIM(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [GA_best,  ~, GA_curve ]   = GA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [TBLO_best,~, TBLO_curve]  = TBLO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [WSO_best,~, WSO_curve]  = WSO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [WO_best,  ~, WO_curve ]   = WO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [GSA_best, ~, GSA_curve]   = GSA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [WOA_best, ~, WOA_curve]   = WOA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [GWO_best, ~, GWO_curve]   = GWO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [AVOA_best,~, AVOA_curve]  = AVOA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [RSA_best, ~, RSA_curve]   = RSA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [MPA_best, ~, MPA_curve]   = MPA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [TSA_best, ~, TSA_curve]   = TSA(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-            [MVO_best, ~, MVO_curve]   = MVO(Search, Max_iterations, lowerbound, upperbound, dimension, fitness);
-
-            % ---------- ENSURE CURVES ARE CONSISTENT WITH BEST SCORES ----------
-            FIM_curve = standardizeCurve(FIM_curve, FIM_best, Max_iterations);
-            GA_curve  = standardizeCurve(GA_curve , GA_best , Max_iterations);
-            TBLO_curve= standardizeCurve(TBLO_curve,TBLO_best,Max_iterations);
-            WSO_curve = standardizeCurve(WSO_curve,WSO_best,Max_iterations);
-            WO_curve  = standardizeCurve(WO_curve , WO_best , Max_iterations);
-            GSA_curve = standardizeCurve(GSA_curve,GSA_best, Max_iterations);
-            WOA_curve = standardizeCurve(WOA_curve,WOA_best, Max_iterations);
-            GWO_curve = standardizeCurve(GWO_curve,GWO_best, Max_iterations);
-            AVOA_curve= standardizeCurve(AVOA_curve,AVOA_best,Max_iterations);
-            RSA_curve = standardizeCurve(RSA_curve, RSA_best,Max_iterations);
-            MPA_curve = standardizeCurve(MPA_curve, MPA_best,Max_iterations);
-            TSA_curve = standardizeCurve(TSA_curve, TSA_best,Max_iterations);
-            MVO_curve = standardizeCurve(MVO_curve, MVO_best,Max_iterations);
-
-            % Store results
-            run_r_results{1}  = r;
-            run_r_results{2}  = struct('best', FIM_best, 'curve', FIM_curve);
-            run_r_results{3}  = struct('best', GA_best,  'curve', GA_curve);
-            run_r_results{4}  = struct('best', TBLO_best,'curve', TBLO_curve);
-            run_r_results{5}  = struct('best', WSO_best, 'curve', WSO_curve);
-            run_r_results{6}  = struct('best', WO_best,  'curve', WO_curve);
-            run_r_results{7}  = struct('best', GSA_best, 'curve', GSA_curve);
-            run_r_results{8}  = struct('best', WOA_best, 'curve', WOA_curve);
-            run_r_results{9}  = struct('best', GWO_best, 'curve', GWO_curve);
-            run_r_results{10} = struct('best', AVOA_best,'curve', AVOA_curve);
-            run_r_results{11} = struct('best', RSA_best, 'curve', RSA_curve);
-            run_r_results{12} = struct('best', MPA_best, 'curve', MPA_curve);
-            run_r_results{13} = struct('best', TSA_best, 'curve', TSA_curve);
-            run_r_results{14} = struct('best', MVO_best, 'curve', MVO_curve);
-            
-            resultsCell(k, :) = run_r_results;
-        end % for
+            % Update best run if current run is better
+            if FIM_best < bestFIMScore
+                bestFIMScore = FIM_best;
+                bestRun = r;
+                bestFIMPosition = FIM_pos;
+            end
+        end
+        fprintf('→ [%s] Best FIM score across all runs: %.6g (Run %d)\n', ...
+            Fun_name, bestFIMScore, bestRun);
     end
     
     % Post-execution processing (plotting, Excel writing, etc.)
@@ -277,7 +349,7 @@ for f = 1:numel(Fun_list)
         
         r = resultsCell{k, 1}; % Actual run number
         
-        % Extract results
+        % Extract results (best scores and curves for all algorithms)
         FIM_best = resultsCell{k, 2}.best; FIM_curve = resultsCell{k, 2}.curve;
         GA_best  = resultsCell{k, 3}.best; GA_curve  = resultsCell{k, 3}.curve;
         TBLO_best= resultsCell{k, 4}.best; TBLO_curve= resultsCell{k, 4}.curve;
@@ -291,6 +363,11 @@ for f = 1:numel(Fun_list)
         MPA_best = resultsCell{k, 12}.best; MPA_curve = resultsCell{k, 12}.curve;
         TSA_best = resultsCell{k, 13}.best; TSA_curve = resultsCell{k, 13}.curve;
         MVO_best = resultsCell{k, 14}.best; MVO_curve = resultsCell{k, 14}.curve;
+        
+        % For Func_eng: Extract FIM position for decision variables
+        if strcmp(benchName, 'Func_eng')
+            FIM_pos = resultsCell{k, 15};
+        end
         
         fprintf('→ [%s] Run %d/%d ... processing results\n', Fun_name, r, num_runs);
 
@@ -449,6 +526,53 @@ for f = 1:numel(Fun_list)
     % Trim repData to only include executed runs
     repData = repData(1:repData_count);
     
+    % ================== NEW: Store Decision Variables in MAIN FILE (Func_eng only) ==================
+    if strcmp(benchName, 'Func_eng') && ~isnan(bestRun)
+        fprintf('→ [%s] Storing decision variables in main file for best run (Run %d) with FIM score: %.6g\n', ...
+            Fun_name, bestRun, bestFIMScore);
+        
+        ensureExcelClosedAndUnlocked(excelFilePath);
+        
+        % Read existing table
+        T = readtable(excelFilePath, 'Sheet', sheetName);
+        
+        % Get actual variable names for this function
+        varNames = getActualVariableNames(Fun_name);
+        
+        % Add decision variable columns after Rank column if they don't exist
+        rankColIdx = find(strcmp(T.Properties.VariableNames, 'Rank'), 1);
+        
+        if ~isempty(rankColIdx)
+            % Remove any existing decision variable columns to avoid duplicates
+            dvColMask = startsWith(T.Properties.VariableNames, 'DV_') | ismember(T.Properties.VariableNames, varNames);
+            if any(dvColMask)
+                T(:, dvColMask) = [];
+            end
+            
+            % Add decision variables as new columns after Rank
+            for dim = 1:dimension
+                if dim <= length(varNames)
+                    colName = varNames{dim};
+                else
+                    colName = sprintf('DV_%d', dim); % Fallback if no specific name
+                end
+                
+                % Initialize column with NaN
+                T.(colName) = nan(height(T), 1);
+                
+                % Fill FIM row with actual decision variable value
+                fimRow = find(strcmp(T.Algorithm, 'FIM'), 1);
+                if ~isempty(fimRow) && length(bestFIMPosition) >= dim
+                    T{fimRow, colName} = bestFIMPosition(dim);
+                end
+            end
+            
+            % Write updated table back to Excel
+            writeWithRetry(T, excelFilePath, sheetName);
+            fprintf('→ [%s] Decision variables saved in main file for best run (Run %d)\n', Fun_name, bestRun);
+        end
+    end
+    
     % ================== Decide representative AFTER all runs ==================
     repIdx = selectRepresentativeRun(repData, dense_rank_tol);
     if ~isnan(repIdx)
@@ -498,8 +622,32 @@ end
 
 fprintf('ALL FUNCTIONS COMPLETED.\n');
 fprintf('Saved Excel: %s\n', excelFilePath);
+if strcmp(benchName, 'Func_eng')
+    fprintf('NOTE: Decision variables stored in main Excel file after Rank column.\n');
+end
 fprintf('Saved graphs under: %s\n', fullfile(benchRoot,'Graphs'));
 warning('on', 'MATLAB:xlswrite:AddSheet');
+%% ============================== NEW: Function to get actual variable names ==========================
+function varNames = getActualVariableNames(functionName)
+% Returns the actual variable names for each engineering function
+    switch functionName
+        case 'PressureVesselDesign'
+            varNames = {'ts', 'th', 'r', 'l'};
+        case 'WeldedBeam'
+            varNames = {'W', 'L', 'd', 'h'};
+        case 'SpringDesign'
+            varNames = {'W', 'd', 'n'};
+        case 'ThreeBarTruss'
+            varNames = {'a1', 'a2'};
+        case 'GearTrainDesign'
+            varNames = {'n1', 'n2', 'n3', 'n4'};
+        case 'CantileverBeam'
+            varNames = {'y1', 'y2', 'y3', 'y4', 'y5'}; % No specific names in comments
+        otherwise
+            % Fallback for unknown functions
+            varNames = arrayfun(@(k) sprintf('DV_%d', k), 1:10, 'UniformOutput', false);
+    end
+end
 %% ============================== Local functions (Unchanged) ==========================
 function ranks = denseRankVector(v, tol)
 % Dense integer ranks (ascending). Equal => same rank. No gaps.
