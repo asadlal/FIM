@@ -1,10 +1,17 @@
 # ✨ Father-Inspired Metaheuristic (FIM)
 
-This repository contains the **MATLAB implementation** of the **Father-Inspired Metaheuristic (FIM)**, as well as the complete set of results used in the associated research paper, including those of all competing algorithms.
+This repository contains the **MATLAB source code** of the Father-Inspired Metaheuristic (FIM), the **supplementary material**, and the complete set of results used in the associated research paper (including all competing algorithms).
+This repository is shared to support our journal submission. It includes the **MATLAB source code** of FIM and the **supplementary material**. Reuse or reproduction of this work requires prior permission from the authors. For inquiries, contact Muhammad Asad Lal at asad@njust.edu.cn
 
 -----
 
 ## 📂 Repository Structure
+
+### 📂 `Supplementary Material`
+
+This folder contains the **Supplementary Material** for the paper "Father-Inspired Metaheuristic: A New Human-Based Optimization Approach". It includes the **simulation results** and the **convergence curve graphs** for **CEC2017 (30D and 50D)**.
+
+-----
 
 ### 📂 `Matlab Code`
 
