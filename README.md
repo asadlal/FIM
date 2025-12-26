@@ -118,4 +118,4 @@ These files include run values, summary statistics, rankings, and convergence pl
 
 ## 📧 Contact
 
-For any inquiries or issues, please reach out to us at: huangbo@njust.edu.cn
+For any inquiries or issues, please reach out to us at: huangbo@njust.edu.cn or asad@njust.edu.cn
