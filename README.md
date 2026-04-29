@@ -1,6 +1,6 @@
 # ✨ Father-Inspired Metaheuristic (FIM)
 
-This repository is shared to support our journal submission. It includes the **MATLAB source code** of FIM and the **supplementary material**. Reuse or reproduction of this work requires prior permission from the authors. For inquiries, contact Muhammad Asad Lal at asad@njust.edu.cn
+This repository is shared to support our journal submission. It includes the **MATLAB source code** of FIM and the **supplementary material**. Reuse or reproduction of this work requires prior permission from the authors. For inquiries, contact at asad@njust.edu.cn
 
 -----
 
