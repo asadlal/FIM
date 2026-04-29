@@ -10,8 +10,6 @@ This repository is shared to support our journal submission. It includes the **M
 
 This folder contains the **Supplementary Material** for the paper **"Father-Inspired Metaheuristic: A Hybrid Framework with Neighborhood Repulsion and Elite Learning for Continuous Optimization"**. It includes the reported **simulation results** and **convergence curve graphs** for the **IEEE CEC2017 benchmark functions** in different dimensions.
 
------
-
 * **📂 `IEEE CEC2017 - 10D`**
       * Contains the numerical results for the **10-dimensional CEC2017 benchmark functions**.
       * Includes the Excel result file:
