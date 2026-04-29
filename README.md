@@ -10,27 +10,26 @@ This repository is shared to support our journal submission. It includes the **M
 
 This folder contains the **Supplementary Material** for the paper **"Father-Inspired Metaheuristic: A Hybrid Framework with Neighborhood Repulsion and Elite Learning for Continuous Optimization"**. It includes the reported **simulation results** and **convergence curve graphs** for the **IEEE CEC2017 benchmark functions** in different dimensions.
 
-* **📂 `IEEE CEC2017 - 10D`**
-      * Contains the numerical results for the **10-dimensional CEC2017 benchmark functions**.
-      * Includes the Excel result file:
-        * **📄 `IEEE CEC2017 - 10D.xlsx`**
-      * Includes the convergence curve graphs in:
-        * **📂 `Convergence curves graph - 10D`**
+  * **📂 `IEEE CEC2017 - 10D`**
+    * Contains the numerical results for the **10-dimensional CEC2017 benchmark functions**.
+    * Includes the Excel result file:
+      * **📄 `IEEE CEC2017 - 10D.xlsx`**
+    * Includes the convergence curve graphs in:
+      * **📂 `Convergence curves graph - 10D`**
 
   * **📂 `IEEE CEC2017 - 30D`**
-      * Contains the numerical results for the **30-dimensional CEC2017 benchmark functions**.
-      * Includes the Excel result file:
-        * **📄 `IEEE CEC2017 - 30D.xlsx`**
-      * Includes the convergence curve graphs in:
-        * **📂 `Convergence curves graph - 30D`**
+    * Contains the numerical results for the **30-dimensional CEC2017 benchmark functions**.
+    * Includes the Excel result file:
+      * **📄 `IEEE CEC2017 - 30D.xlsx`**
+    * Includes the convergence curve graphs in:
+      * **📂 `Convergence curves graph - 30D`**
 
   * **📂 `IEEE CEC2017 -50D`**
-      * Contains the numerical results for the **50-dimensional CEC2017 benchmark functions**.
-      * Includes the Excel result file:
-        * **📄 `IEEE CEC2017 - 50D.xlsx`**
-      * Includes the convergence curve graphs in:
-        * **📂 `Convergence curves graph - 50D`**
-
+    * Contains the numerical results for the **50-dimensional CEC2017 benchmark functions**.
+    * Includes the Excel result file:
+      * **📄 `IEEE CEC2017 - 50D.xlsx`**
+    * Includes the convergence curve graphs in:
+      * **📂 `Convergence curves graph - 50D`**
 -----
 
 
